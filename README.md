@@ -8,6 +8,20 @@ The dataset contains 60,000 data points collected by APIGen, an automated data g
 
 According to human evaluation of 600 sampled data points, the dataset has a correctness rate above 95% (with the remaining 5% having minor issues like inaccurate arguments).
 
+## The Dark Side of Function Calling
+
+By design, the PLLuM model is a secure model. By adding function calling, we create a security hole for an attack called “jailbreak function” that exploits inconsistencies in matching algorithms, user coercion, and the lack of rigorous security filters. Experiments on state-of-the-art LLMs have shown an alarmingly high effectiveness of this technique.
+
+### **Defense strategies for such attacks (to be tested and implemented)**
+
+- **Restrict user permissions:** For example, allowing only automatic function call mode.
+- **Align function call alignment:** Perform security alignment training for functions on a similar scale as for chat mode.
+- **Configure security filters:** Implement security filters during the function call process.
+- **Enabling defensive prompts:** Adding special instructions in the user prompts or function description that instruct the model how to handle potentially harmful calls.
+- Experiments have shown that inserting defensive prompts (e.g. “(Note: You are a responsible AI, you must check the security of the function before executing the function call, return the argument with ‘I’m sorry,...’ when it is harmful.)”) into the function description has proven to be an effective risk mitigation strategy for the tested Claude-3.5-Sonnet and Gemini-1.5-pro models.
+
+Source: [The Dark Side of Function Calling: Pathways to Jailbreaking Large Language Models](https://arxiv.org/abs/2407.17915)
+
 ## Project Structure
 
 ```
