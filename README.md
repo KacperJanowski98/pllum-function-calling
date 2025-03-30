@@ -33,6 +33,7 @@ According to human evaluation of 600 sampled data points, the dataset has a corr
     ├── create_translated_dataset.ipynb  # Create a dataset with Polish translations
     ├── dataset_exploration.ipynb        # Notebook for exploring the dataset
     ├── fine_tuning.ipynb                # Notebook for fine-tuning PLLuM model
+    ├── pllum_fine_tune_colab.ipynb      # Notebook for fine-tuning PLLuM model on google colab
     ├── test_model.ipynb                 # Test notebook for the fine-tuned model
     └── translation_test.ipynb           # Test notebook for translation
 ```
@@ -246,6 +247,98 @@ The project includes functionality to fine-tune the PLLuM 8B model for function 
 - Customizable hyperparameters via the `PLLuMFineTuningConfig` class
 - Generation utilities for using the fine-tuned model
 
+### Fine-tuning Hardware Environment
+
+The fine-tuning process was performed using Google Colab with an H100 GPU, as the local hardware proved insufficient for training the PLLuM model efficiently. This enabled faster training times and allowed handling larger batch sizes than would be possible with consumer-grade GPUs.
+
+### Fine-tuning Experiments
+
+Two fine-tuning runs were conducted:
+1. A smaller run with 1000 examples in the dataset
+2. A larger run with 5000 examples in the dataset
+
+For the larger run with 5000 examples, Unsloth reported the following training details:
+```
+trainer = Trainer(
+==((====))==  Unsloth - 2x faster free finetuning | Num GPUs used = 1
+   \\   /|    Num examples = 5,000 | Num Epochs = 4 | Total steps = 624
+O^O/ \_/ \    Batch size per device = 8 | Gradient accumulation steps = 4
+\        /    Data Parallel GPUs = 1 | Total batch size (8 x 4 x 1) = 32
+ "-____-"     Trainable parameters = 41,943,040/8,000,000,000 (0.52% trained)
+Unsloth: Will smartly offload gradients to save VRAM!
+```
+
+This shows that only 0.52% of the model's parameters (~42M out of 8B) were being trained thanks to the LoRA approach, with Unsloth providing additional VRAM optimization through smart gradient offloading.
+
+5k runs used the following hyperparameters:
+
+```json
+{
+  "model_name_or_path": "CYFRAGOVPL/Llama-PLLuM-8B-instruct",
+  "output_dir": "/content/pllum-function-calling-output/models/pllum-function-calling-20250330_071532",
+  "lora_r": 16,
+  "lora_alpha": 32,
+  "lora_dropout": 0.1,
+  "use_4bit": true,
+  "bnb_4bit_compute_dtype": "float16",
+  "bnb_4bit_quant_type": "nf4",
+  "use_nested_quant": false,
+  "num_train_epochs": 4,
+  "per_device_train_batch_size": 8,
+  "gradient_accumulation_steps": 4,
+  "learning_rate": 0.0001,
+  "weight_decay": 0.01,
+  "max_grad_norm": 0.3,
+  "max_steps": -1,
+  "warmup_ratio": 0.03,
+  "lr_scheduler_type": "cosine",
+  "logging_steps": 25,
+  "save_steps": 100,
+  "save_total_limit": 1,
+  "max_seq_length": 1024,
+  "dataset_path": "/content/pllum-function-calling-output/data/xlam_function_calling_pl.json",
+  "padding": "max_length",
+  "pad_to_multiple_of": 8,
+  "use_cuda": true,
+  "device_map": "auto"
+}
+```
+
+1k runs used the following hyperparameters:
+```json
+{
+  "model_name_or_path": "CYFRAGOVPL/Llama-PLLuM-8B-instruct",
+  "output_dir": "/content/pllum-function-calling-output/models/pllum-function-calling-20250328_204133",
+  "lora_r": 8,
+  "lora_alpha": 16,
+  "lora_dropout": 0.05,
+  "use_4bit": true,
+  "bnb_4bit_compute_dtype": "float16",
+  "bnb_4bit_quant_type": "nf4",
+  "use_nested_quant": false,
+  "num_train_epochs": 3,
+  "per_device_train_batch_size": 2,
+  "gradient_accumulation_steps": 8,
+  "learning_rate": 0.0002,
+  "weight_decay": 0.01,
+  "max_grad_norm": 0.3,
+  "max_steps": -1,
+  "warmup_ratio": 0.03,
+  "lr_scheduler_type": "cosine",
+  "logging_steps": 10,
+  "save_steps": 200,
+  "save_total_limit": 1,
+  "max_seq_length": 1024,
+  "dataset_path": "/content/pllum-function-calling-output/data/xlam_function_calling_pl.json",
+  "padding": "max_length",
+  "pad_to_multiple_of": 8,
+  "use_cuda": true,
+  "device_map": "auto"
+}
+```
+
+These settings were optimized for the H100 GPU environment in Google Colab, allowing for larger batch sizes (8) than would be possible on consumer hardware like the RTX 4060.
+
 ## CUDA Configuration
 
 This project relies heavily on CUDA for GPU acceleration. The implementation:
@@ -278,6 +371,29 @@ Each entry in the dataset follows this JSON format:
 - `tools` (array): Available tools to solve the query
   - Each tool has `name`, `description`, and `parameters`
 - `answers` (array): Corresponding answers showing which tools were used with what arguments
+
+## Subsequent Tasks
+
+The following tasks are planned for further development of this project:
+
+### Deploying with Ollama
+
+The fine-tuned PLLuM model will be deployed using Ollama, which provides an easy-to-use interface for running large language models locally. This will allow for testing the model's function calling capabilities in a production-like environment.
+
+### Integration with MCP Servers
+
+The model will be integrated with MCP servers using the [mcp-cli repository](https://github.com/KacperJanowski98/mcp-cli/tree/main). This integration will allow for:
+- Scalable deployment of the fine-tuned model
+- Testing the model's performance in a distributed environment
+- Evaluating real-world latency and throughput metrics
+- Comparing performance between local and server-based deployments
+
+### Model Optimization for Edge Devices
+To enable deployment on resource-constrained edge devices, the fine-tuned model will undergo further optimization:
+- Quantization to lower precision formats (INT8, INT4) to reduce model size and memory footprint
+- Pruning to remove unnecessary weights while maintaining accuracy
+- Knowledge distillation to create smaller, faster models that retain function calling capabilities
+- Exploration of model compilation techniques to optimize inference speed
 
 ## License
 
