@@ -10,7 +10,7 @@ According to human evaluation of 600 sampled data points, the dataset has a corr
 
 ## The Dark Side of Function Calling
 
-By design, the PLLuM model is a secure model. By adding function calling, we create a security hole for an attack called “jailbreak function” that exploits inconsistencies in matching algorithms, user coercion, and the lack of rigorous security filters. Experiments on state-of-the-art LLMs have shown an alarmingly high effectiveness of this technique.
+By design, the PLLuM model is a secure model. By adding function calling, we create a security hole for an attack called "jailbreak function" that exploits inconsistencies in matching algorithms, user coercion, and the lack of rigorous security filters. Experiments on state-of-the-art LLMs have shown an alarmingly high effectiveness of this technique.
 
 ### **Defense strategies for such attacks (to be tested and implemented)**
 
@@ -18,7 +18,7 @@ By design, the PLLuM model is a secure model. By adding function calling, we cre
 - **Align function call alignment:** Perform security alignment training for functions on a similar scale as for chat mode.
 - **Configure security filters:** Implement security filters during the function call process.
 - **Enabling defensive prompts:** Adding special instructions in the user prompts or function description that instruct the model how to handle potentially harmful calls.
-- Experiments have shown that inserting defensive prompts (e.g. “(Note: You are a responsible AI, you must check the security of the function before executing the function call, return the argument with ‘I’m sorry,...’ when it is harmful.)”) into the function description has proven to be an effective risk mitigation strategy for the tested Claude-3.5-Sonnet and Gemini-1.5-pro models.
+- Experiments have shown that inserting defensive prompts (e.g. "(Note: You are a responsible AI, you must check the security of the function before executing the function call, return the argument with 'I'm sorry,...' when it is harmful.)") into the function description has proven to be an effective risk mitigation strategy for the tested Claude-3.5-Sonnet and Gemini-1.5-pro models.
 
 Source: [The Dark Side of Function Calling: Pathways to Jailbreaking Large Language Models](https://arxiv.org/abs/2407.17915)
 
@@ -34,6 +34,12 @@ Source: [The Dark Side of Function Calling: Pathways to Jailbreaking Large Langu
 │   └── instruction.md    # Project instructions
 ├── models/               # Directory for storing fine-tuned models
 │   └── .gitkeep          # Placeholder to ensure directory is tracked
+├── ollama/               # Ollama integration and deployment utilities
+│   ├── README.md         # Ollama-specific documentation
+│   ├── convert_to_gguf.py # Script to convert models to GGUF format
+│   ├── create_modelfile.py # Script to create Ollama Modelfiles
+│   ├── function_calling_server.py # Flask server for function calling API
+│   └── merge_lora.py     # Script to merge LoRA adapters with base model
 ├── pyproject.toml        # Project dependencies and metadata
 ├── README.md             # Project documentation
 ├── src/                  # Source code
@@ -386,13 +392,68 @@ Each entry in the dataset follows this JSON format:
   - Each tool has `name`, `description`, and `parameters`
 - `answers` (array): Corresponding answers showing which tools were used with what arguments
 
+## Ollama Deployment
+
+The fine-tuned PLLuM model has been deployed using Ollama, enabling local execution of the model with function calling capabilities. The implementation can be found in the `ollama/` directory.
+
+### Conversion Process
+
+The model conversion to Ollama format involves four main steps:
+
+1. **Merging LoRA Adapters with Base Model** using `merge_lora.py`
+2. **Converting to GGUF Format** using `convert_to_gguf.py` with Q8_0 quantization
+3. **Creating an Ollama Modelfile** using `create_modelfile.py`
+4. **Deploying to Ollama** by installing the model locally
+
+### Function Calling Server
+
+A Flask-based API server (`function_calling_server.py`) has been implemented to provide a REST API for function calling. The server features:
+
+- Endpoint for function calling at `/function_call`
+- Support for both Polish and English queries
+- Automatic language detection for prompt formatting
+- Health check endpoint at `/health`
+- Standard chat endpoint at `/chat`
+
+### Usage Example
+
+```bash
+# Install Ollama (if not already installed)
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Install the model (from the ollama directory)
+cd ollama
+./install_model.sh
+
+# Run the function calling server
+python function_calling_server.py
+
+# Make a function call request
+curl -X POST http://localhost:5000/function_call \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "Jaka jest pogoda w Warszawie?",
+    "tools": [
+      {
+        "name": "get_weather",
+        "description": "Get weather information",
+        "parameters": {
+          "location": {
+            "type": "string",
+            "description": "The city and state or country",
+            "required": true
+          }
+        }
+      }
+    ]
+  }'
+```
+
+Refer to the `ollama/README.md` file for detailed instructions on installation, usage, and troubleshooting.
+
 ## Subsequent Tasks
 
 The following tasks are planned for further development of this project:
-
-### Deploying with Ollama
-
-The fine-tuned PLLuM model will be deployed using Ollama, which provides an easy-to-use interface for running large language models locally. This will allow for testing the model's function calling capabilities in a production-like environment.
 
 ### Integration with MCP Servers
 
@@ -419,3 +480,4 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [APIGen pipeline](https://apigen-pipeline.github.io/) for dataset generation
 - [CYFRAGOVPL/Llama-PLLuM-8B-instruct](https://huggingface.co/CYFRAGOVPL/Llama-PLLuM-8B-instruct) model
 - [Unsloth](https://github.com/unslothai/unsloth) framework for optimized LLM fine-tuning
+- [Ollama](https://ollama.com/) for local model deployment
